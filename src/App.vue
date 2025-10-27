@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 /* 左側選項 */
 const dateOptions = ['前30分', '今日', '自訂'];
@@ -9,6 +9,11 @@ const customEndDate = ref('');
 const orderNumber = ref('');
 const timeZones = ['美東時區', '北京時區'];
 const selectedTimeZone = ref('美東時區');
+const isMenuOpen = ref(false);
+const selectAndClose = (fn: () => void) => {
+  fn();
+  isMenuOpen.value = false;
+};
 
 /* 右側表格控制 */
 const statusOptions = ['默認', '中獎', '未中獎'];
@@ -19,8 +24,8 @@ const selectedRows = ref(10);
 /* 範例表格資料 */
 const tableData = ref([
   {
-    game: '跳起来2',
-    time: '2025/10/26 04:56:30',
+    game: '上山打老虎1',
+    time: '2025/10/28 04:56:30',
     free_game: true,
     order: '26740305',
     profit: 2316,
@@ -28,8 +33,8 @@ const tableData = ref([
     link: '>',
   },
   {
-    game: '跳起来1',
-    time: '2025/10/26 04:40:12',
+    game: 'JACK IN THE DONUTS',
+    time: '2025/10/28 04:40:12',
     free_game: false,
     order: '26740300',
     profit: -500.01,
@@ -37,8 +42,8 @@ const tableData = ref([
     link: '>',
   },
   {
-    game: '跳起来3',
-    time: '2025/10/26 05:10:00',
+    game: 'Garena 傳說對決',
+    time: '2025/10/28 05:10:00',
     free_game: true,
     order: '26740310',
     profit: 1200.18,
@@ -89,31 +94,79 @@ const filteredData = computed(() =>
 const profitColor = (value: number) => {
   return value >= 0 ? 'text-[#01ba80]' : 'text-[#eb4b1c]';
 };
+
+watch(isMenuOpen, val => {
+  document.body.style.overflow = val ? 'hidden' : 'auto';
+});
 </script>
 
 <template>
-  <div class="flex flex-col md:flex-row h-screen bg-gray-100">
-    <!-- 左側欄 -->
+  <div class="flex flex-col md:flex-row h-screen bg-gray-500">
+    <!-- 手機版上方 -->
+    <div
+      class="md:hidden flex items-center justify-start bg-[#2f313d] text-white p-4"
+    >
+      <!-- 漢堡按鈕在左上角 -->
+      <button @click="isMenuOpen = !isMenuOpen" class="focus:outline-none mr-3">
+        <svg
+          v-if="!isMenuOpen"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class="w-6 h-6"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M4 6h16M4 12h16M4 18h16"
+          />
+        </svg>
+        <svg
+          v-else
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class="w-6 h-6"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+      <h1 class="text-lg font-semibold">報表查詢</h1>
+    </div>
+
+    <!-- 桌面版永遠顯示 -->
     <aside
-      class="w-full md:w-64 p-8 bg-[#2f313d] text-white flex flex-col justify-between"
+      class="hidden md:flex md:flex-col md:w-64 bg-[#2f313d] text-white justify-between p-8"
     >
       <div>
+        <h1 class="text-2xl text-center font-semibold mb-10 leading-normal">
+          報表查詢
+        </h1>
         <h2 class="text-lg font-semibold mb-2">日期搜索</h2>
         <div class="flex flex-col space-y-2 mb-4">
           <button
             v-for="option in dateOptions"
             :key="option"
-            :class="
+            :class="[
+              'py-2 rounded cursor-pointer',
               selectedDate === option
                 ? 'bg-[#f5c000] text-[#242830]'
-                : 'bg-transparent border border-[#3e434f]'
-            "
-            class="py-2 rounded cursor-pointer"
-            @click="selectedDate = option"
+                : 'bg-transparent border border-[#3e434f]',
+            ]"
+            @click="selectAndClose(() => (selectedDate = option))"
           >
             {{ option }}
           </button>
         </div>
+
         <div
           v-if="selectedDate === '自訂'"
           class="flex flex-col space-y-2 mb-6"
@@ -129,6 +182,7 @@ const profitColor = (value: number) => {
             class="border rounded px-2 py-1"
           />
         </div>
+
         <h2 class="text-lg font-semibold mb-2">单号搜索 (7天内)</h2>
         <div class="flex flex-col space-y-2 mb-6">
           <input
@@ -139,21 +193,88 @@ const profitColor = (value: number) => {
           />
           <button
             class="bg-[#f5c000] text-[#242830] py-2 rounded disabled:bg-[#484c5c] disabled:text-[#888d9e] cursor-pointer"
+            @click="selectAndClose(() => {})"
           >
             搜索
           </button>
         </div>
       </div>
+    </aside>
+
+    <!-- 手機版用 clip 動畫控制 -->
+    <aside
+      class="fixed md:hidden top-0 left-0 w-full h-[80dvh] bg-[#2f313d] text-white flex flex-col justify-between p-8 z-40 transition-all duration-500 ease-in-out"
+      :class="isMenuOpen ? 'clip-open' : 'clip-closed'"
+    >
+      <div>
+        <h2 class="text-lg font-semibold mb-2">日期搜索</h2>
+        <div class="flex flex-col space-y-2 mb-4">
+          <button
+            v-for="option in dateOptions"
+            :key="option"
+            :class="[
+              'py-2 rounded cursor-pointer',
+              selectedDate === option
+                ? 'bg-[#f5c000] text-[#242830]'
+                : 'bg-transparent border border-[#3e434f]',
+            ]"
+            @click="selectAndClose(() => (selectedDate = option))"
+          >
+            {{ option }}
+          </button>
+        </div>
+
+        <div
+          v-if="selectedDate === '自訂'"
+          class="flex flex-col space-y-2 mb-6"
+        >
+          <input
+            type="date"
+            v-model="customStartDate"
+            class="border rounded px-2 py-1"
+          />
+          <input
+            type="date"
+            v-model="customEndDate"
+            class="border rounded px-2 py-1"
+          />
+        </div>
+
+        <h2 class="text-lg font-semibold mb-2">单号搜索 (7天内)</h2>
+        <div class="flex flex-col space-y-2 mb-6">
+          <input
+            type="text"
+            v-model="orderNumber"
+            placeholder="输入单号"
+            class="border border-[#3e434f] rounded px-2 py-1"
+          />
+          <button
+            class="bg-[#f5c000] text-[#242830] py-2 rounded disabled:bg-[#484c5c] disabled:text-[#888d9e] cursor-pointer"
+            @click="selectAndClose(() => {})"
+          >
+            搜索
+          </button>
+        </div>
+      </div>
+
       <div>
         <h2 class="text-lg font-semibold mb-2">時區選擇</h2>
         <select
           v-model="selectedTimeZone"
           class="bg-[#484c5c] w-full border rounded px-2 py-1 cursor-pointer"
+          @change="selectAndClose(() => {})"
         >
           <option v-for="tz in timeZones" :key="tz">{{ tz }}</option>
         </select>
       </div>
     </aside>
+
+    <!-- 遮罩背景 -->
+    <div
+      v-if="isMenuOpen"
+      class="fixed inset-0 bg-black bg-opacity-50 md:hidden z-30"
+      @click="isMenuOpen = false"
+    ></div>
 
     <!-- 右側內容 -->
     <main class="flex-1 p-4 md:p-6 overflow-x-auto bg-[#242830]">
@@ -162,19 +283,17 @@ const profitColor = (value: number) => {
       >
         {{ selectedTimeZone }}：{{ selectedDate }}
       </section>
-
-      <section
-        class="mb-4 flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0"
-      >
+      <section class="mb-4 flex items-center justify-between gap-2">
+        <!-- 按鈕群組 -->
         <div
-          class="inline-flex border border-[#626676] rounded overflow-hidden"
+          class="flex flex-nowrap border border-[#626676] rounded overflow-hidden max-w-max"
         >
           <button
             v-for="(s, idx) in statusOptions"
             :key="s"
             @click="selectedStatus = s"
             :class="[
-              'px-3 py-1 transition focus:outline-none cursor-pointer',
+              'px-3 py-1 text-sm transition focus:outline-none cursor-pointer whitespace-nowrap flex-1 md:flex-none text-center',
               selectedStatus === s
                 ? 'bg-[#f5c000] text-[#242830]'
                 : 'bg-[#484c5c] text-white hover:bg-gray-600',
@@ -187,12 +306,17 @@ const profitColor = (value: number) => {
           </button>
         </div>
 
-        <select
-          v-model="selectedRows"
-          class="bg-[#484c5c] border-none rounded px-2 py-1 text-white focus:outline-none focus:ring-0 cursor-pointer"
-        >
-          <option v-for="r in rowOptions" :key="r" :value="r">{{ r }}筆</option>
-        </select>
+        <!-- 下拉選單 -->
+        <div class="w-auto">
+          <select
+            v-model="selectedRows"
+            class="w-auto bg-[#484c5c] border-none rounded px-2 py-1 text-white focus:outline-none focus:ring-0 cursor-pointer text-sm"
+          >
+            <option v-for="r in rowOptions" :key="r" :value="r">
+              {{ r }}筆
+            </option>
+          </select>
+        </div>
       </section>
 
       <section class="overflow-x-auto text-white bg-[#30323e] rounded">
@@ -241,3 +365,13 @@ const profitColor = (value: number) => {
     </main>
   </div>
 </template>
+
+<style scoped>
+/* 自訂圓弧展開動畫 */
+.clip-closed {
+  clip-path: circle(0% at 0 0);
+}
+.clip-open {
+  clip-path: circle(150% at 0 0);
+}
+</style>

@@ -1,5 +1,9 @@
 <script lang="ts" setup>
 import { ref, computed, watch } from 'vue';
+import { Grid, CloseBold } from '@element-plus/icons-vue';
+import dayjs from 'dayjs';
+import { useI18n } from 'vue-i18n';
+const { t, locale } = useI18n();
 
 /* 左側選項 */
 const dateOptions = ['前30分', '今日', '自訂'];
@@ -14,6 +18,41 @@ const selectAndClose = (fn: () => void) => {
   fn();
   isMenuOpen.value = false;
 };
+
+const today = dayjs();
+const startDate = today.subtract(7, 'day');
+
+// 可能的年份
+const yearOptions = [today.year()];
+
+// 月份（可能跨月）
+const monthOptions = Array.from(
+  new Set([startDate.month() + 1, today.month() + 1])
+).sort((a, b) => a - b);
+
+// reactive 選項
+const fromYear = ref(today.year());
+const fromMonth = ref(monthOptions[0]);
+const fromDay = ref<number>();
+
+const toYear = ref(today.year());
+const toMonth = ref(today.month() + 1);
+const toDay = ref(today.date());
+
+// 計算「從」日期的日選項
+const dayOptions = computed(() => {
+  return getDaysForMonth(fromMonth.value ?? today.month() + 1);
+});
+
+// 根據月份計算允許的日期
+function getDaysForMonth(month: number): number[] {
+  if (month === startDate.month() + 1) {
+    return [startDate.date()]; // 例如 [31]
+  } else if (month === today.month() + 1) {
+    return Array.from({ length: today.date() }, (_, i) => i + 1);
+  }
+  return [];
+}
 
 /* 右側表格控制 */
 const statusOptions = ['默認', '中獎', '未中獎'];
@@ -98,6 +137,14 @@ const profitColor = (value: number) => {
 watch(isMenuOpen, val => {
   document.body.style.overflow = val ? 'hidden' : 'auto';
 });
+
+watch(locale, newLang => {
+  localStorage.setItem('lang', newLang);
+});
+
+const saveLang = () => {
+  localStorage.setItem('lang', locale.value);
+};
 </script>
 
 <template>
@@ -107,37 +154,11 @@ watch(isMenuOpen, val => {
       class="md:hidden flex items-center justify-start bg-[#2f313d] text-white p-4"
     >
       <!-- 漢堡按鈕在左上角 -->
-      <button @click="isMenuOpen = !isMenuOpen" class="focus:outline-none mr-3">
-        <svg
-          v-if="!isMenuOpen"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="2"
-          stroke="currentColor"
-          class="w-6 h-6"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M4 6h16M4 12h16M4 18h16"
-          />
-        </svg>
-        <svg
-          v-else
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="2"
-          stroke="currentColor"
-          class="w-6 h-6"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
+      <button
+        @click="isMenuOpen = !isMenuOpen"
+        class="flex items-center justify-center focus:outline-none mr-3"
+      >
+        <el-icon :size="24"><Grid /></el-icon>
       </button>
       <h1 class="text-lg font-semibold">報表查詢</h1>
     </div>
@@ -203,11 +224,16 @@ watch(isMenuOpen, val => {
 
     <!-- 手機版用 clip 動畫控制 -->
     <aside
-      class="fixed md:hidden top-0 left-0 w-full h-[80dvh] bg-[#2f313d] text-white flex flex-col justify-between p-8 z-40 transition-all duration-500 ease-in-out"
+      class="fixed md:hidden top-0 left-0 w-full h-full bg-[#2f313d] text-white flex flex-col justify-between p-8 z-40 transition-all duration-500 ease-in-out"
       :class="isMenuOpen ? 'clip-open' : 'clip-closed'"
     >
       <div>
-        <h2 class="text-lg font-semibold mb-2">日期搜索</h2>
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="text-lg font-semibold">日期搜索</h2>
+          <el-icon :size="24" @click="isMenuOpen = false">
+            <CloseBold />
+          </el-icon>
+        </div>
         <div class="flex flex-col space-y-2 mb-4">
           <button
             v-for="option in dateOptions"
@@ -224,21 +250,92 @@ watch(isMenuOpen, val => {
           </button>
         </div>
 
-        <div
-          v-if="selectedDate === '自訂'"
-          class="flex flex-col space-y-2 mb-6"
-        >
-          <input
-            type="date"
-            v-model="customStartDate"
-            class="border rounded px-2 py-1"
-          />
-          <input
-            type="date"
-            v-model="customEndDate"
-            class="border rounded px-2 py-1"
-          />
-        </div>
+        <template v-if="selectedDate === '自訂'">
+          <div class="mb-4 flex flex-wrap gap-3 items-center">
+            <div class="flex flex-1 gap-x-2">
+              <span class="font-semibold mr-2">從</span>
+              <div class="flex flex-1 items-center justify-between gap-x-4">
+                <el-select
+                  class="w-full"
+                  v-model="fromYear"
+                  placeholder="年"
+                  :disabled="yearOptions.length === 1"
+                >
+                  <el-option
+                    v-for="y in yearOptions"
+                    :key="y"
+                    :label="y"
+                    :value="y"
+                  />
+                </el-select>
+
+                <el-select
+                  class="w-full"
+                  v-model="fromMonth"
+                  placeholder="月"
+                  :disabled="monthOptions.length === 1"
+                >
+                  <el-option
+                    v-for="m in monthOptions"
+                    :key="m"
+                    :label="m"
+                    :value="m"
+                  />
+                </el-select>
+
+                <el-select class="w-full" v-model="fromDay" placeholder="日">
+                  <el-option
+                    v-for="d in dayOptions"
+                    :key="d"
+                    :label="d"
+                    :value="d"
+                  />
+                </el-select>
+              </div>
+            </div>
+            <div class="flex flex-1 gap-x-2">
+              <span class="font-semibold mr-2">到</span>
+              <div class="flex flex-1 items-center justify-between gap-x-4">
+                <el-select
+                  class="w-full"
+                  v-model="toYear"
+                  placeholder="年"
+                  :disabled="yearOptions.length === 1"
+                >
+                  <el-option
+                    v-for="y in yearOptions"
+                    :key="y"
+                    :label="y"
+                    :value="y"
+                  />
+                </el-select>
+
+                <el-select
+                  class="w-full"
+                  v-model="toMonth"
+                  placeholder="月"
+                  :disabled="monthOptions.length === 1"
+                >
+                  <el-option
+                    v-for="m in monthOptions"
+                    :key="m"
+                    :label="m"
+                    :value="m"
+                  />
+                </el-select>
+
+                <el-select class="w-full" v-model="toDay" placeholder="日">
+                  <el-option
+                    v-for="d in getDaysForMonth(toMonth)"
+                    :key="d"
+                    :label="d"
+                    :value="d"
+                  />
+                </el-select>
+              </div>
+            </div>
+          </div>
+        </template>
 
         <h2 class="text-lg font-semibold mb-2">单号搜索 (7天内)</h2>
         <div class="flex flex-col space-y-2 mb-6">
@@ -254,6 +351,19 @@ watch(isMenuOpen, val => {
           >
             搜索
           </button>
+        </div>
+
+        <div class="mb-5">
+          <select v-model="locale" @change="saveLang">
+            <option value="zh-TW">繁體中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+            <option value="fr">Français</option>
+          </select>
+
+          <h1>{{ t('hello') }}</h1>
+          <button>{{ t('start_game') }}</button>
         </div>
       </div>
 
